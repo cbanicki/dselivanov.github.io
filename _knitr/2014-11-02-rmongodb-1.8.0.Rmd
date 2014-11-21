@@ -1,0 +1,38 @@
+---
+layout: post
+category : blog
+tags : [R, MongoDB, NEWS]
+---
+{% include JB/setup %}
+
+Today I’m introducing new version of rmongodb  (which I started to maintain) – v1.8.0. Install it from github:
+```{r, eval=FALSE}
+library(devtools)
+install_github("mongosoup/rmongodb@v1.8.0")
+```
+Release version will be uploaded to CRAN shortly.
+This release brings a lot of improvements to rmongodb:
+
+1. Now rmongodb correctly handles arrays.
+    - `mongo.bson.to.list()` rewritten from scratch. R’s *unnamed lists* are treated as arrays, *named lists* as objects. Also it has an option – whether to try to simplify vanilla lists to arrays or not.
+    - `mongo.bson.from.list()`  updated.
+2. `mongo.cursor.to.list()`  rewritten and has slightly **changed behavior** – it doesn’t produce any type coercions while fetching data from cursor.
+1. `mongo.aggregation()` has new options to match MongoDB 2.6+ features. Also second argument now called _pipeline_ (as it is called in MongoDB command).
+1. new function `mongo.index.TTLcreate()`  – creating indexes with “time to live” property.
+1. R’s `NA`  values now converted into MongoDB `null` values.
+1. many bug fixes (including troubles with installation on Windows) – see [full list](https://github.com/mongosoup/rmongodb/issues?q=milestone%3A1.8.0+is%3Aclosed)  
+
+I want to highlight some of changes.  
+The **first most important** is that now rmongodb correctly handles arrays. This issue was very annoying for many users (including me :-). Moreover about half of rmongodb related questions at [stackoverflow](http://stackoverflow.com/questions/tagged/rmongodb) were caused by this issue. In new version of package, `mongo.bson.to.list()` is rewritten from scratch and  `mongo.bson.from.list()`  fixed. I heavily tested new behaviour and all works very smooth. Still it’s quite big internal change, because these fucntions are workhorses for many other high-level rmongodb functions. Please test it, your *feedback is very wellcome*. For example here is convertion of complex JSON into BSON using `mongo.bson.from.JSON()`  (which internally call `mongo.bson.from.list()`):
+```{r complex_object, eval=TRUE}
+library(rmongodb)
+json_string <- '{"_id": "dummyID", "arr":["string",3.14,[1,"2",[3],{"four":4}],{"mol":42}]}'
+bson <- mongo.bson.from.JSON (json_string)
+```
+This will produce following MongoDB document:
+```
+{"_id": "dummyID", "arr":["string",3.14,[1,"2",[3],{"four":4}],{"mol":42}]}  
+```  
+The **second one** is that `mongo.cursor.to.list()`  has new behaviour: it returns plain list of objects without any coercion. Each element of list corresponds to a document of underlying query result. Additional improvement is that `mongo.cursor.to.list()`  uses R’s _environments_ to avoid extra copying, so now it is much more efficient than previous version (especially when fetching a lot of records from MongoDB).
+
+In the next few releases I have plans to upgrade underlying [mongo-c-driver-legacy](https://github.com/mongodb/mongo-c-driver-legacy) to latest version **0.8.1**.
