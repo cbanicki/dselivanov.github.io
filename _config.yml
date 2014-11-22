@@ -24,7 +24,7 @@ author :
 # Else if you are pushing to username.github.io, replace with your username.
 # Finally if you are pushing to a GitHub project page, include the project name at the end.
 #
-production_url : http://dselivanov.github.io
+production_url : http://dsnotes.com
 
 # All Jekyll-Bootstrap specific configurations are namespaced into this hash
 #
@@ -82,7 +82,7 @@ JB :
   comments :
     provider : disqus
     disqus :
-      short_name : dselivanovgithub 
+      short_name : dselivanov 
    
   # Settings for analytics helper
   # Set 'provider' to the analytics provider you want to use.
