@@ -12,7 +12,7 @@ title : RSS R Feed
 			<item>
 				<title>{{ post.title | xml_escape }}</title>
 				<description>{{ post.content | xml_escape }}</description>
-                <pubDate>{{ post.date | date_to_xmlschema }}</pubDate>
+                <pubDate>{{ post.date | date_to_rfc822 }}</pubDate>
                 <link>{{ site.production_url }}{{ post.url }}</link>
 				<guid isPermaLink="true">{{ site.production_url }}{{ post.url }}</guid>
 			</item>
