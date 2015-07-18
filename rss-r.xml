@@ -8,7 +8,6 @@ title : RSS R Feed
 		<title>{{ site.title }} - R</title>
         <description>{{ site.title }} - {{ site.author.name }} - Posts tagged as 'R'</description>
         <link>{{ site.production_url }}{{ site.rss_path }}</link>
-        <link>{{ site.production_url }}</link>
 		{% for post in site.tags.R limit:10 %}
 			<item>
 				<title>{{ post.title | xml_escape }}</title>
