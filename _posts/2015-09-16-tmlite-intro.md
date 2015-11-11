@@ -1,12 +1,17 @@
 ---
 layout: post
-category : blog
+categories : [blog, text2vec]
 tags : [R, text-mining]
 title: 'Introducing tmlite - new framework for text mining in R'
 author: "Dmitriy Selivanov"
 date: "16.09.2015"
 ---
 {% include JB/setup %}
+
+# IMPORTANT NOTE
+**Code from this post is outdated (package APIs were changed).**  
+
+**See [this post](http://dsnotes.com/blog/2015/11/09/text2vec/).**  
 
 Today I am pleased to present [tmlite](https://github.com/dselivanov/tmlite) - small, but fast and robust package for text-mining tasks in R. It is not availible yet on CRAN, but you can install it directly from github: 
 

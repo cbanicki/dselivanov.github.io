@@ -1,6 +1,6 @@
 ---
 layout: post
-category : blog, text2vec
+categories : [blog, text2vec]
 tags : [R, text-mining, text2vec]
 title: 'Introducing tmlite - new framework for text mining in R'
 author: "Dmitriy Selivanov"
@@ -9,7 +9,7 @@ date: "16.09.2015"
 {% include JB/setup %}
 
 # IMPORTANT NOTE
-** Code from this post is outdated (package APIs were changed).**  
+**Code from this post is outdated (package APIs were changed).**  
 
 **See [this post](http://dsnotes.com/blog/2015/11/09/text2vec/).**  
 
