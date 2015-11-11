@@ -1,6 +1,6 @@
 ---
 layout: post
-category : blog
+category : blog, text2vec
 tags : [R, text-mining, algorithms, text2vec]
 title: 'Analyzing texts with text2vec package.'
 author: "Dmitriy Selivanov"
