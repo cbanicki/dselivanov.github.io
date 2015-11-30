@@ -92,7 +92,7 @@ it <- itoken(movie_review[['review']], preprocess_function = tolower,
              tokenizer = word_tokenizer, chunks_number = 10, progessbar = F)
 # using unigrams here
 t1 <- Sys.time()
-vocab <- vocabulary(iterator = it, ngram = c(1L, 1L))
+vocab <- vocabulary(src = it, ngram = c(1L, 1L))
 print( difftime( Sys.time(), t1, units = 'sec'))
 
 # str(vocab, nchar.max = 20, width = 80, strict.width = 'wrap')
@@ -190,7 +190,7 @@ it <- itoken(movie_review[['review']], preprocess_function = tolower,
              tokenizer = word_tokenizer, chunks_number = 10, progessbar = F)
 
 t1 <- Sys.time()
-vocab <- vocabulary(iterator = it, ngram = c(1L, 3L))
+vocab <- vocabulary(src = it, ngram = c(1L, 3L))
 
 print( difftime( Sys.time(), t1, units = 'sec'))
 
