@@ -11,7 +11,7 @@ output:
 ---
 ```{r global_options, include=FALSE}
 library(RColorBrewer)
-knitr::opts_chunk$set(fig.width = 10, fig.height = 5, fig.path = 'Figs/')
+knitr::opts_chunk$set(fig.width = 10, fig.height = 5)
 ```
 Today I will start to publish series of posts about experiments on english wikipedia. As I said before, [text2vec](https://github.com/dselivanov/text2vec) is inspired by [gensim](https://github.com/piskvorky/gensim) - well designed and quite efficient python library for topic modeling and related NLP tasks. Also I found very useful Radim's posts, where he tried to evaluate some algorithms on [english wikipedia dump](http://dumps.wikimedia.org/enwiki/). This dataset is rather big. For example, dump for *2015-10* (which will be used below) is **12gb bzip2 compressed file**. In uncompressed form it takes about 50gb. So I can't call it a "toy" dataset :-) You can download original files [here](http://dumps.wikimedia.org/enwiki/). We are interested in file which ends with *"pages-articles.xml.bz2"*.
 
