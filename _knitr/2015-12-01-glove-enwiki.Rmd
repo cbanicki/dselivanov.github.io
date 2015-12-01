@@ -270,7 +270,7 @@ Closer look to resources usage:
 
 ```{r, eval=T, echo=FALSE}
 resources <- data.table(
-  runtime_minutes = c(119, 405, 401),
+  runtime_minutes = c(119, 431, 401),
   max_ram_mb = c(11100, 820, 405),
   action = c('tcm_creation', 'fitting', 'fitting'),
   model = c('GloVe', 'GloVe', 'word2vec')
