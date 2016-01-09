@@ -29,9 +29,9 @@ This post will consists of two main parts:
 
 GloVe algorithm consists of following steps:
 
-1. Collect word cooccurence statistics in a form of word coocurence matrix $X$. Each element $X_{ij}$ of such matrix represents measure of how often *word i* appears in context of *word j*. Usually we scan our corpus in followinf manner: for each term we look for context terms withing some area - *window_size* before and *window_size* after. Also we give less weight for more distand words (usually  $decay = 1/offset$).
-2. Define soft constraint for each word pair: $w_i^Tw_j + b_i + b_j = log(X_{ij})$. Here $w_i$ - vector for main word, $w_j$ - vector for context word, $b_i$, $b_j$ - scalar biases for main and context words.
-3. Define cost function $J = \sum_{i=1}^V \sum_{j=1}^V \; f(X_{ij}) ( w_i^T w_j + b_i + b_j - \log X_{ij})^2$. Here $f$ is a weighting function which help us to prevent learning only from exremly common word pairs. GloVe authors choose following fucntion:
+1. Collect word cooccurence statistics in a form of word coocurence matrix $$X$$. Each element $$X_{ij}$$ of such matrix represents measure of how often *word i* appears in context of *word j*. Usually we scan our corpus in followinf manner: for each term we look for context terms withing some area - *window_size* before and *window_size* after. Also we give less weight for more distand words (usually  $$decay = 1/offset$).
+2. Define soft constraint for each word pair: $$w_i^Tw_j + b_i + b_j = log(X_{ij})$. Here $$w_i$$ - vector for main word, $$w_j$$ - vector for context word, $$b_i$, $$b_j$$ - scalar biases for main and context words.
+3. Define cost function $$J = \sum_{i=1}^V \sum_{j=1}^V \; f(X_{ij}) ( w_i^T w_j + b_i + b_j - \log X_{ij})^2$. Here $$f$$ is a weighting function which help us to prevent learning only from exremly common word pairs. GloVe authors choose following fucntion:
 $$
 f(X_{ij}) = 
 \begin{cases}
@@ -52,10 +52,11 @@ There are a few main issues with term cooccurence matrix (*tcm*):
 1. *tcm* should be sparse. We should be able to construct *tcm* for large vocabularies ( > 100k words).
 1. Fast lookups/inserts.
 
-To meet requirement of sparsity we need to store data in associative array. `unordered_map` is good candidate because of $O(1)$ lookups/inserts complexity. I ended with `std::unordered_map< std::pair<uint32_t, uint32_t>, T >` as container for sparse matrix in triplet form. Performance of `unordered_map` heavily depends on underlying hash fucntion. Fortunately, we can pack `pair<uint32_t, uint32_t>` into single `uint64_t` in a determenistic way without any collisions.  
+To meet requirement of sparsity we need to store data in associative array. `unordered_map` is good candidate because of $$O(1)$$ lookups/inserts complexity. I ended with `std::unordered_map< std::pair<uint32_t, uint32_t>, T >` as container for sparse matrix in triplet form. Performance of `unordered_map` heavily depends on underlying hash fucntion. Fortunately, we can pack `pair<uint32_t, uint32_t>` into single `uint64_t` in a determenistic way without any collisions.  
 Hash function for `std::pair<uint32_t, uint32_t>` will look like:
 
-```c++
+
+{% highlight cpp %}
 namespace std {
   template <>
   struct hash<std::pair<uint32_t, uint32_t>>
@@ -66,7 +67,7 @@ namespace std {
     }
   };
 }
-```
+{% endhighlight %}
 
 For details see [this](http://stackoverflow.com/a/24693169/1069256) and [this](http://stackoverflow.com/questions/2768890) stackoverflow questions.
 
@@ -76,10 +77,10 @@ Also note, that our cooccurence matrix is symmetrical, so internally we will sto
 
 Now we should implement efficient parallel asynchronous stochastic gradient descent for word cooccurence matrix factorization, which is proposed in [GloVe](http://nlp.stanford.edu/projects/glove/) paper. Interesting thing - SGD inherently is serial algoritms, but when your problem is sparse, you can do asynchronous updates without any locks and achieve speedup proportional to number of cores on your machine! If you didn't read [HOGWILD!](https://www.eecs.berkeley.edu/~brecht/papers/hogwildTR.pdf), I recomment to do that.
 
-Let me remind formulation of SGD. We try to move $x_t$ parameters in a minimizing direction, given by $−g_t$ with a learning rate $\alpha$:
+Let me remind formulation of SGD. We try to move $$x_t$$ parameters in a minimizing direction, given by $$−g_t$$ with a learning rate $$\alpha$:
 $$x_{t+1} = x_t − \alpha g_t$$
 
-So, we have to calculate gradients for our cost function $J = \sum_{i=1}^V \sum_{j=1}^V f(X_{ij}) ( w_i^T w_j + b_i + b_j - \log X_{ij} )^2$:
+So, we have to calculate gradients for our cost function $$J = \sum_{i=1}^V \sum_{j=1}^V f(X_{ij}) ( w_i^T w_j + b_i + b_j - \log X_{ij} )^2$:
 
 $$\frac{\partial J}{\partial w_i} = f(X_{ij}) w_j ( w_i^T w_j + b_i + b_j - \log X_{ij})$$
 $$\frac{\partial J}{\partial w_j} = f(X_{ij}) w_i ( w_i^T w_j + b_i + b_j - \log X_{ij})$$
@@ -91,11 +92,11 @@ $$\frac{\partial J}{\partial b_j} = f(X_{ij}) (w_i^T w_j + b_i + b_j - \log X_{i
 We will use modification of SGD - [AdaGrad](http://www.magicbroom.info/Papers/DuchiHaSi10.pdf) algoritm. It automaticaly determines per-feature learning rate by tracking historical gradients, so that frequently occurring features
 in the gradients get small learning rates and infrequent features get higher ones. For AdaGrad implementation deteails see excellents [Notes on AdaGrad](http://www.ark.cs.cmu.edu/cdyer/adagrad.pdf) by Chris Dyer. 
 
-Formulation of AdaGrad step $t$ and feature $i$ is following:
+Formulation of AdaGrad step $$t$$ and feature $$i$$ is following:
 
-$$x_{t+1, i} = x_{t, i} − \frac{\alpha}{\sqrt{\sum_{\tau=1}^{t-1}} g_{\tau,i}^2} g_{t,i} $$
+$$x_{t+1, i} = x_{t, i} − \frac{\alpha}{\sqrt{\sum_{\tau=1}^{t-1}} g_{\tau,i}^2} g_{t,i}$$
 
-As we can see, at each iteration $t$ we need to keep track of sum over all historical gradients. 
+As we can see, at each iteration $$t$$ we need to keep track of sum over all historical gradients. 
 
 ## Parallel asynchronous AdaGrad
 
@@ -113,7 +114,8 @@ As seen from analysis above, `GloveFit` class should consists following paramete
 4. word biases square gradients `grad_sq_b_i`, `grad_sq_b_j` for adaptive learning rates.
 5. `lerning_rate`, `max_cost` and other scalar model parameters.
 
-```c++
+
+{% highlight cpp %}
 class GloveFit {
 private:
   size_t vocab_size, word_vec_size;
@@ -132,7 +134,7 @@ private:
   // word biases square gradients
   vector<double> grad_sq_b_i, grad_sq_b_j;
 }
-```
+{% endhighlight %}
 
 ### Single iteration
 
@@ -173,13 +175,14 @@ Using TBB is little bit trickier, then writing simple OpenMP `#pragma` directive
 
 For now suppose, we have `partial_fit` method in `GloveFit` class with following signature ([see actual code here](https://github.com/dselivanov/text2vec/blob/master/src/GloveFit.h#L52-L134)):
 
-```c++
+
+{% highlight cpp %}
 double partial_fit( size_t begin, 
                     size_t end, 
                     const RVector<int> &x_irow, 
                     const RVector<int> &x_icol, 
                     const RVector<double> &x_val);
-```
+{% endhighlight %}
 It takes 
 
 1. *tcm* in sparse triplet form `<x_irow, x_icol, x_val>`  
@@ -188,7 +191,8 @@ It takes
 And performs SGD steps over this range - [updates word vectors, gradients, etc](#single-iteration). At the end it retruns value of accumulated cost function. Note, that internally this method modifies values members of the class.
 
 Also note, that signature of `partial_fit` is very similar to what we have to implement in our TBB functor. Now we are ready to write it:
-```c++
+
+{% highlight cpp %}
 struct AdaGradIter : public Worker {
   RVector<int> x_irow, x_icol;
   RVector<double> x_val;
@@ -248,11 +252,12 @@ struct AdaGradIter : public Worker {
     global_cost += rhs.global_cost;
   }
 };
-```
+{% endhighlight %}
 As you can see, it is very similar to example form RcppParallel site. One diffrence - it has side-effects. By calling `partial_fit` it modifies internal state of the input instance of `GloveFit` class (which actually contains our GloVe model).
 
 Now lets write `GloveFitter` class, which will be callable from R via `Rcpp-modules`. It will act as interface for fitting our model and take all input model parameters such as vocabulary size, desired word vectors size, initial AdaGrad learning rate, etc. Also we want to track cost between iterations and want to be able to perform some early stopping strategy between SGD iterations. For that purpose we keep our model in C++ class, so we can modify it "in place" at each SGD iteration (which can be problematic in R)
-```c++
+
+{% highlight cpp %}
 class GloveFitter {
 public:
   GloveFitter(size_t vocab_size,
@@ -286,10 +291,11 @@ private:
   GloveFit gloveFit;
   AdaGradIter adaGradIter;
 };
-```
+{% endhighlight %}
 
 And create wrapper with `Rcpp-Modules`:
-```c++
+
+{% highlight cpp %}
 RCPP_MODULE(GloveFitter) {
   class_< GloveFitter >( "GloveFitter" )
   //<vocab_size, word_vec_size, x_max, learning_rate, grain_size, max_cost, alpha>
@@ -299,12 +305,13 @@ RCPP_MODULE(GloveFitter) {
   .method( "fit_chunk", &GloveFitter::fit_chunk, "process TCM data chunk")
   ;
 }
-```
+{% endhighlight %}
 
 
 Now we can use `GloveFitter` class from R:
 
-```r
+
+{% highlight r %}
 fit <- new( GloveFitter, vocabulary_size, word_vectors_size, x_max, 
             learning_rate, grain_size, max_cost, alpha)
 NUM_ITER <- 10
@@ -313,4 +320,4 @@ for(i in seq_len(NUM_ITER)) {
   print(cost)
   fit$set_cost_zero()
 }
-```
+{% endhighlight %}
