@@ -1,7 +1,7 @@
 ---
 layout: post
-category : blog, text2vec
-tags : [R, text-mining, SGD]
+category : [blog, text2vec]
+tags : [R, SGD, text2vec, Rcpp, RcppParallel]
 title: 'text2vec implementation details. Writing fast parallel asynchronous SGD/AdaGrad.'
 author: "Dmitriy Selivanov"
 date: "09.01.2016"

@@ -1,7 +1,7 @@
 ---
 layout: post
-category : blog, text2vec
-tags : [R, text-mining, SGD]
+category : [blog, text2vec]
+tags : [R, SGD, text2vec, Rcpp, RcppParallel]
 title: 'text2vec implementation details. Writing fast parallel asynchronous SGD/AdaGrad.'
 author: "Dmitriy Selivanov"
 date: "09.01.2016"
@@ -145,7 +145,7 @@ private:
 
 Now we should to [initialize](https://github.com/dselivanov/text2vec/blob/master/src/GloveFit.h#L8-L41) parameters and perform iteration of SGD:
 
-```{sh, eval=F}
+```{sh, eval=F, highlight = F}
 //init cost
 global_cost = 0
 // assume tcm is sparse matrix in triplet form - <i, j, x>
