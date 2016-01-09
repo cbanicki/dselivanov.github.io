@@ -31,7 +31,7 @@ GloVe algorithm consists of following steps:
 
 1. Collect word cooccurence statistics in a form of word coocurence matrix $$X$$. Each element $$X_{ij}$$ of such matrix represents measure of how often *word i* appears in context of *word j*. Usually we scan our corpus in followinf manner: for each term we look for context terms withing some area - *window_size* before and *window_size* after. Also we give less weight for more distand words (usually  $$decay = 1/offset$$).
 2. Define soft constraint for each word pair: $$w_i^Tw_j + b_i + b_j = log(X_{ij})$$. Here $$w_i$$ - vector for main word, $$w_j$$ - vector for context word, $$b_i$$, $$b_j$$ - scalar biases for main and context words.
-3. Define cost function $$J = \sum_{i=1}^V \sum_{j=1}^V \; f(X_{ij}) ( w_i^T w_j + b_i + b_j - \log X_{ij})^2$. Here $$f$$ is a weighting function which help us to prevent learning only from exremly common word pairs. GloVe authors choose following fucntion:
+3. Define cost function $$J = \sum_{i=1}^V \sum_{j=1}^V \; f(X_{ij}) ( w_i^T w_j + b_i + b_j - \log X_{ij})^2$$. Here $$f$$ is a weighting function which help us to prevent learning only from exremly common word pairs. GloVe authors choose following fucntion:
 
 $$
 f(X_{ij}) = 
@@ -78,9 +78,12 @@ Also note, that our cooccurence matrix is symmetrical, so internally we will sto
 Now we should implement efficient parallel asynchronous stochastic gradient descent for word cooccurence matrix factorization, which is proposed in [GloVe](http://nlp.stanford.edu/projects/glove/) paper. Interesting thing - SGD inherently is serial algoritms, but when your problem is sparse, you can do asynchronous updates without any locks and achieve speedup proportional to number of cores on your machine! If you didn't read [HOGWILD!](https://www.eecs.berkeley.edu/~brecht/papers/hogwildTR.pdf), I recomment to do that.
 
 Let me remind formulation of SGD. We try to move $$x_t$$ parameters in a minimizing direction, given by $$−g_t$$ with a learning rate $$\alpha$$:
+
 $$x_{t+1} = x_t − \alpha g_t$$
 
-So, we have to calculate gradients for our cost function $$J = \sum_{i=1}^V \sum_{j=1}^V f(X_{ij}) ( w_i^T w_j + b_i + b_j - \log X_{ij} )^2$$:
+So, we have to calculate gradients for our cost function:
+
+$$J = \sum_{i=1}^V \sum_{j=1}^V f(X_{ij}) ( w_i^T w_j + b_i + b_j - \log X_{ij} )^2$$:
 
 $$\frac{\partial J}{\partial w_i} = f(X_{ij}) w_j ( w_i^T w_j + b_i + b_j - \log X_{ij})$$
 
@@ -142,7 +145,7 @@ private:
 
 Now we should to [initialize](https://github.com/dselivanov/text2vec/blob/master/src/GloveFit.h#L8-L41) parameters and perform iteration of SGD:
 
-```{}
+```{sh, eval=F}
 //init cost
 global_cost = 0
 // assume tcm is sparse matrix in triplet form - <i, j, x>
