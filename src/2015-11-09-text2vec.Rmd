@@ -6,7 +6,6 @@ title: 'Analyzing texts with text2vec package'
 summary: text2vec tutorial
 author: "Dmitriy Selivanov"
 license: GPL (>= 2)
-src: 2015-11-09-text2vec.Rmd
 ---
 In the last weeks I have actively worked on [text2vec](https://github.com/dselivanov/text2vec) (formerly tmlite) - R package, which provides tools for fast text vectorization and state-of-the art word embeddings. 
 
@@ -24,10 +23,9 @@ There are a lot of changes from my previous [introduction post](http://dsnotes.c
 In this post I'll focus on text vectorization tools provided by [text2vec](https://github.com/dselivanov/text2vec). Also, it will be a base for a `text2vec` vignette. I'll write another post about [GloVe](http://nlp.stanford.edu/projects/glove/) next week, don't miss it. 
 
 Plese, don't forgive to install `text2vec` first:
-
-{% highlight r %}
+```{r, install, eval=FALSE}
 devtools::install_github('dselivanov/text2vec')
-{% endhighlight %}
+```
 
 # Features
 
@@ -81,77 +79,39 @@ Here we will discuss mostly first stage. Underlying texts can take a lot of spac
 
 ## Sentiment analysis on IMDB moview review dataset
 **text2vec** provides `movie_review` dataset. It consists of 25000 movie review, each of which marked ad positive or negative.
-
-{% highlight r %}
+```{r, loading-data, eval=TRUE}
 library(text2vec)
-{% endhighlight %}
-
-
-
-<pre class="output">
-Warning: package 'text2vec' was built under R version 3.2.3
-</pre>
-
-
-
-<pre class="output">
-Loading required package: methods
-</pre>
-
-
-
-{% highlight r %}
 data("movie_review")
 # str(movie_review, nchar.max = 20, width = 80, strict.width = 'wrap')
-{% endhighlight %}
+```
 To represent documents in vector space, first of all we have to create `term -> term_id` mappings. We use termin *term* instead of *word*, because actually it can be arbitrary *ngram*, not just single word.  Having set of documents we want represent them as *sparse matrix*, where each row should corresponds to *document* and each column should corresponds to *term*. This can be done in 2 ways: using **vocabulary**, or by **feature hashing** (hashing trick).
 
 ### Vocabulary based vectorization
 Lets examine the first choice. He we collect unique terms from all documents and mark them with *unique_id*. `vocabulary()` function designed specially for this purpose.
-
-{% highlight r %}
+```{r, vocab-iterator, eval=TRUE}
 it <- itoken(movie_review[['review']], preprocess_function = tolower, 
              tokenizer = word_tokenizer, chunks_number = 10, progessbar = F)
 # using unigrams here
 t1 <- Sys.time()
 vocab <- vocabulary(src = it, ngram = c(1L, 1L))
 print( difftime( Sys.time(), t1, units = 'sec'))
-{% endhighlight %}
 
-
-
-<pre class="output">
-Time difference of 0.7814438 secs
-</pre>
-
-
-
-{% highlight r %}
 # str(vocab, nchar.max = 20, width = 80, strict.width = 'wrap')
-{% endhighlight %}
+```
 Now we can costruct DTM. Again, since all functions related to *corpus* construction have streaming API, we have to create *iterator* and provide it to `create_vocab_corpus` function:
-
-{% highlight r %}
+```{r, vocab_dtm_1, eval=TRUE}
 it <- itoken(movie_review[['review']], preprocess_function = tolower, 
              tokenizer = word_tokenizer, chunks_number = 10, progessbar = F)
 corpus <- create_vocab_corpus(it, vocabulary = vocab)
 dtm <- get_dtm(corpus)
-{% endhighlight %}
+```
 We got DTM matrix. Lets check its dimension:
-
-{% highlight r %}
+```{r, vocab_dtm_1_dim, eval=TRUE}
 dim(dtm)
-{% endhighlight %}
-
-
-
-<pre class="output">
-[1]  5000 42652
-</pre>
-As you can see, it has 5000 rows (equal to number of documents) and 42652 columns (equal to number of unique terms).
+```
+As you can see, it has `r dim(dtm)[[1]]` rows (equal to number of documents) and `r dim(dtm)[[2]]` columns (equal to number of unique terms).
 Now we are ready to fit our first model. Here we will use `glmnet` package to fit *logistic regression* with *L1* penalty.
-
-{% highlight r %}
+```{r, fit_1, message=FALSE, warning=FALSE, eval=TRUE}
 library(glmnet)
 t1 <- Sys.time()
 fit <- cv.glmnet(x = dtm, y = movie_review[['sentiment']], 
@@ -168,31 +128,9 @@ fit <- cv.glmnet(x = dtm, y = movie_review[['sentiment']],
                  # in this vignette
                  maxit = 1e3)
 print( difftime( Sys.time(), t1, units = 'sec'))
-{% endhighlight %}
-
-
-
-<pre class="output">
-Time difference of 4.463653 secs
-</pre>
-
-
-
-{% highlight r %}
 plot(fit)
-{% endhighlight %}
-
-![plot of chunk fit_1](../figure/2015-11-09-text2vec-fit_1-1.png)
-
-{% highlight r %}
 print (paste("max AUC = ", round(max(fit$cvm), 4)))
-{% endhighlight %}
-
-
-
-<pre class="output">
-[1] &quot;max AUC =  0.9231&quot;
-</pre>
+```
 
 Note, that training time is quite high. We can reduce it and also significantly improve accuracy.
 
@@ -200,8 +138,7 @@ Note, that training time is quite high. We can reduce it and also significantly 
 
 We will prune our vocabulary. For example we can find words *"a"*, *"the"*, *"in"* in almost all documents, but actually they don't give any useful information. Usually they called [stop words](https://en.wikipedia.org/wiki/Stop_words). But in contrast to them, corpus also contains very *uncommon terms*, which contained only in few documents. These terms also useless, because we don't have sufficient statistics for them. Here we will filter them out:
 
-
-{% highlight r %}
+```{r, prune_vocab_dtm_1}
 # remove very common and uncommon words
 pruned_vocab <- prune_vocabulary(vocab, term_count_min = 10,
  doc_proportion_max = 0.5, doc_proportion_min = 0.001)
@@ -210,38 +147,19 @@ it <- itoken(movie_review[['review']], preprocess_function = tolower,
              tokenizer = word_tokenizer, chunks_number = 10, progessbar = F)
 corpus <- create_vocab_corpus(it, vocabulary = pruned_vocab)
 dtm <- get_dtm(corpus)
-{% endhighlight %}
+```
 
 ###  TF-IDF
 
 Also we can (and usually should!) apply **[TF-IDF](https://en.wikipedia.org/wiki/Tf%E2%80%93idf) transofrmation**, which will increase weight for document-specific terms and decrease weight for widely used terms:
 
-
-{% highlight r %}
+```{r, tfidf_dtm_1}
 dtm <- dtm %>% tfidf_transformer
-{% endhighlight %}
-
-
-
-<pre class="output">
-idf scaling matrix not provided, calculating it form input matrix
-</pre>
-
-
-
-{% highlight r %}
 dim(dtm)
-{% endhighlight %}
-
-
-
-<pre class="output">
-[1] 5000 7663
-</pre>
+```
 
 Now, lets fit out model again:
-
-{% highlight r %}
+```{r, fit_2, message=FALSE, warning=FALSE, eval=TRUE}
 t1 <- Sys.time()
 fit <- cv.glmnet(x = dtm, y = movie_review[['sentiment']], 
                  family = 'binomial', 
@@ -257,31 +175,9 @@ fit <- cv.glmnet(x = dtm, y = movie_review[['sentiment']],
                  # in this vignette
                  maxit = 1e3)
 print( difftime( Sys.time(), t1, units = 'sec'))
-{% endhighlight %}
-
-
-
-<pre class="output">
-Time difference of 2.632884 secs
-</pre>
-
-
-
-{% highlight r %}
 plot(fit)
-{% endhighlight %}
-
-![plot of chunk fit_2](../figure/2015-11-09-text2vec-fit_2-1.png)
-
-{% highlight r %}
 print (paste("max AUC = ", round(max(fit$cvm), 4)))
-{% endhighlight %}
-
-
-
-<pre class="output">
-[1] &quot;max AUC =  0.9201&quot;
-</pre>
+```
 
 As you can seem we obtain faster training, and larger AUC.
 
@@ -290,8 +186,7 @@ As you can seem we obtain faster training, and larger AUC.
 Also we can try to use [ngram](https://en.wikipedia.org/wiki/N-gram)s instead of words.
 We will use up to 3-ngrams:
 
-
-{% highlight r %}
+```{r, ngram_dtm_1}
 it <- itoken(movie_review[['review']], preprocess_function = tolower, 
              tokenizer = word_tokenizer, chunks_number = 10, progessbar = F)
 
@@ -299,17 +194,7 @@ t1 <- Sys.time()
 vocab <- vocabulary(src = it, ngram = c(1L, 3L))
 
 print( difftime( Sys.time(), t1, units = 'sec'))
-{% endhighlight %}
 
-
-
-<pre class="output">
-Time difference of 4.510815 secs
-</pre>
-
-
-
-{% highlight r %}
 vocab <- vocab %>% 
   prune_vocabulary(term_count_min = 10, doc_proportion_max = 0.5, doc_proportion_min = 0.001)
 
@@ -319,43 +204,14 @@ it <- itoken(movie_review[['review']], preprocess_function = tolower,
 corpus <- create_vocab_corpus(it, vocabulary = vocab)
 
 print( difftime( Sys.time(), t1, units = 'sec'))
-{% endhighlight %}
 
-
-
-<pre class="output">
-Time difference of 6.352783 secs
-</pre>
-
-
-
-{% highlight r %}
 dtm <- corpus %>% 
   get_dtm %>% 
   tfidf_transformer
-{% endhighlight %}
 
 
-
-<pre class="output">
-idf scaling matrix not provided, calculating it form input matrix
-</pre>
-
-
-
-{% highlight r %}
 dim(dtm)
-{% endhighlight %}
 
-
-
-<pre class="output">
-[1]  5000 27226
-</pre>
-
-
-
-{% highlight r %}
 t1 <- Sys.time()
 fit <- cv.glmnet(x = dtm, y = movie_review[['sentiment']], 
                  family = 'binomial', 
@@ -371,31 +227,9 @@ fit <- cv.glmnet(x = dtm, y = movie_review[['sentiment']],
                  # in this vignette
                  maxit = 1e3)
 print( difftime( Sys.time(), t1, units = 'sec'))
-{% endhighlight %}
-
-
-
-<pre class="output">
-Time difference of 4.390385 secs
-</pre>
-
-
-
-{% highlight r %}
 plot(fit)
-{% endhighlight %}
-
-![plot of chunk ngram_dtm_1](../figure/2015-11-09-text2vec-ngram_dtm_1-1.png)
-
-{% highlight r %}
 print (paste("max AUC = ", round(max(fit$cvm), 4)))
-{% endhighlight %}
-
-
-
-<pre class="output">
-[1] &quot;max AUC =  0.9233&quot;
-</pre>
+```
 
 So improved our model a little bit more. I'm leaving further tuning for the reader.
 
@@ -405,8 +239,7 @@ If you didn't hear anything about **Feature hashing** (or **hashing trick**), I 
 
 Here I will demonstrate, how to use feature hashing in **text2vec**:
 
-
-{% highlight r %}
+```{r, hash_dtm}
 t1 <- Sys.time()
 
 it <- itoken(movie_review[['review']], preprocess_function = tolower, 
@@ -416,43 +249,13 @@ fh <- feature_hasher(hash_size = 2**18, ngram = c(1L, 3L))
 
 corpus <- create_hash_corpus(it, feature_hasher = fh)
 print( difftime( Sys.time(), t1, units = 'sec'))
-{% endhighlight %}
 
-
-
-<pre class="output">
-Time difference of 2.217206 secs
-</pre>
-
-
-
-{% highlight r %}
 dtm <- corpus %>% 
   get_dtm %>% 
   tfidf_transformer
-{% endhighlight %}
 
-
-
-<pre class="output">
-idf scaling matrix not provided, calculating it form input matrix
-</pre>
-
-
-
-{% highlight r %}
 dim(dtm)
-{% endhighlight %}
 
-
-
-<pre class="output">
-[1]   5000 262144
-</pre>
-
-
-
-{% highlight r %}
 t1 <- Sys.time()
 fit <- cv.glmnet(x = dtm, y = movie_review[['sentiment']], 
                  family = 'binomial', 
@@ -468,30 +271,8 @@ fit <- cv.glmnet(x = dtm, y = movie_review[['sentiment']],
                  # in this vignette
                  maxit = 1e3)
 print( difftime( Sys.time(), t1, units = 'sec'))
-{% endhighlight %}
-
-
-
-<pre class="output">
-Time difference of 13.60883 secs
-</pre>
-
-
-
-{% highlight r %}
 plot(fit)
-{% endhighlight %}
-
-![plot of chunk hash_dtm](../figure/2015-11-09-text2vec-hash_dtm-1.png)
-
-{% highlight r %}
 print (paste("max AUC = ", round(max(fit$cvm), 4)))
-{% endhighlight %}
-
-
-
-<pre class="output">
-[1] &quot;max AUC =  0.9083&quot;
-</pre>
+```
 
 As you can see, we got a little bit worse AUC, but DTM construction time was considerably lower. On large collections of documents this can become a serious argument.

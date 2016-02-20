@@ -1,0 +1,48 @@
+Now we want to do some topic modeling using **lda** package. So we have to create Document-Term matrix
+in `lda-c` format. It is easy with `get_dtm` function:
+```{r, eval = FALSE}
+dtm <- get_dtm(corpus = corp, type = "LDA_C")
+alpha = 0.05
+eta = 0.001
+vocab <- corp$dict %>% names
+library(lda)
+fit <- lda.collapsed.gibbs.sampler(documents = dtm, 
+                                       K = 30, 
+                                       vocab = vocab,
+                                       num.iterations = 500, 
+                                       alpha = alpha, 
+                                       eta = eta,
+                                       compute.log.likelihood = TRUE, 
+                                       trace = 1L)
+```
+Check convergence:
+```{r}
+library(data.table)
+library(ggplot2)
+dt <- as.data.table(t(fit$log.likelihoods))
+dt[,iter:=seq_len(nrow(dt))]
+setnames(dt, 1:2, c("log_likelihood_1", "log_likelihood_2"))
+ggplot(dt, aes(x=iter)) + geom_line(aes(y=log_likelihood_1), col=2) + geom_line(aes(y=log_likelihood_2), col=3)
+```
+Now we can make interactive visualization with beautiful [LDAvis](https://cran.r-project.org/web/packages/LDAvis/) package:
+```{r, ldavis, eval=F}
+library(LDAvis)
+
+all_docs_dt <- do.call(cbind, dtm) %>% t %>% as.data.table
+setnames(all_docs_dt, c('term_id', 'term_count'))
+freq_dt = all_docs_dt[, .(freq = sum(term_count)), keyby = term_id]
+
+vocab <- names(sort(corp$dict))
+
+doc_length <- sapply(dtm, ncol)
+
+theta <- t(apply(fit$document_sums + alpha, 2, function(x) x/sum(x)))
+phi <- t(apply(t(fit$topics) + eta, 2, function(x) x/sum(x)))
+json <- createJSON(phi = phi,
+                   theta = theta, 
+                   doc.length = doc_length, 
+                   vocab = vocab, 
+                   term.frequency = freq_dt[['freq']],
+                   lambda.step = 0.05)
+serVis(json, out.dir = 'vis', open.browser = T)
+```

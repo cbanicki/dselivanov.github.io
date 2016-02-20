@@ -1,19 +1,18 @@
 ---
 layout: post
 category : [blog]
+tags : [R, MongoDB, NEWS]
 title: 'rmongodb 1.8.0'
 summary: Introducing new version of rmongodb package.
 author: "Dmitriy Selivanov"
 license: GPL (>= 2)
-src: 2014-11-02-rmongodb-1.8.0.Rmd
 ---
 
 Today I’m introducing new version of rmongodb  (which I started to maintain) – v1.8.0. Install it from github:
-
-{% highlight r %}
+```{r, eval=FALSE}
 library(devtools)
 install_github("mongosoup/rmongodb@v1.8.0")
-{% endhighlight %}
+```
 Release version will be uploaded to CRAN shortly.
 This release brings a lot of improvements to rmongodb:
 
@@ -28,12 +27,11 @@ This release brings a lot of improvements to rmongodb:
 
 I want to highlight some of changes.  
 The **first most important** is that now rmongodb correctly handles arrays. This issue was very annoying for many users (including me :-). Moreover about half of rmongodb related questions at [stackoverflow](http://stackoverflow.com/questions/tagged/rmongodb) were caused by this issue. In new version of package, `mongo.bson.to.list()` is rewritten from scratch and  `mongo.bson.from.list()`  fixed. I heavily tested new behaviour and all works very smooth. Still it’s quite big internal change, because these fucntions are workhorses for many other high-level rmongodb functions. Please test it, your *feedback is very wellcome*. For example here is convertion of complex JSON into BSON using `mongo.bson.from.JSON()`  (which internally call `mongo.bson.from.list()`):
-
-{% highlight r %}
+```{r complex_object, eval=TRUE}
 library(rmongodb)
 json_string <- '{"_id": "dummyID", "arr":["string",3.14,[1,"2",[3],{"four":4}],{"mol":42}]}'
 bson <- mongo.bson.from.JSON (json_string)
-{% endhighlight %}
+```
 This will produce following MongoDB document:
 ```
 {"_id": "dummyID", "arr":["string",3.14,[1,"2",[3],{"four":4}],{"mol":42}]}  

@@ -6,7 +6,6 @@ title: 'Read from hdfs with R. Brief overview of SparkR.'
 summary: various tools for working with hdfs
 author: "Dmitriy Selivanov"
 license: GPL (>= 2)
-src: 2016-02-20-r-read-hdfs.Rmd
 ---
 *Disclaimer: originally I planned to write post about R functions/packages which allow to read data from hdfs (with benchmarks), but in the end it became more like an overview of SparkR capabilities.*
 
@@ -80,8 +79,7 @@ JAVA_HOME=/usr/java/jdk170_64_45
 ## Reading from hdfs to local R session
 
 For becnhmarks we will generate small data frame with 1M rows:
-
-{% highlight r %}
+```{r, eval=FALSE}
 N <- 1e6
 k <- 1e4
 df <- data.frame(V_int = sample(N, N, replace = T), 
@@ -92,20 +90,18 @@ df <- data.frame(V_int = sample(N, N, replace = T),
                  )
 format(object.size(df), 'Mb')
 # "27.9 Mb"
-{% endhighlight %}
+```
 Now we will save it to disk and copy to hdfs:
-
-{% highlight r %}
+```{r, eval=FALSE}
 write.table(df, 'test_spark.csv', sep = ',', row.names = F, col.names = F)
 # command to call hadoop
 hadoop_cmd <- "/opt/hadoop-2.6.0/bin/hadoop"
 # copy csv from to hdfs
 system2(hadoop_cmd, "fs -copyFromLocal test_spark.csv /user/dmitry.selivanov/csv/")
-{% endhighlight %}
+```
 
 Now lets try to read it with SparkR and collect to local R session:
-
-{% highlight r %}
+```{r, eval=FALSE}
 library(SparkR)
 
 spark_env = list('spark.executor.memory' = '4g', 
@@ -132,7 +128,7 @@ nrow(sdf)
 # lets collect it to local df
 system.time(sdf_local <- collect(sdf))
 # 130.927
-{% endhighlight %}
+```
 more than 2 minutes! So at least until next release we should avoid using `collect` for any medium to large size data frames.
 
 ## Alternatives
@@ -141,16 +137,14 @@ more than 2 minutes! So at least until next release we should avoid using `colle
 
 Here my favourite package comes in - **data.table** and `fread` function. I believe many of `data.table` users don't know, that `fread` input can be not only a file name, but also a unix pipe!
 
-
-{% highlight r %}
+```{r, eval=FALSE}
 library(data.table)
 system.time(sdf_local <- fread(paste(hadoop_cmd, "fs -text /user/dmitry.selivanov/csv/test_spark.csv")))
 # 4.005
-{% endhighlight %}
+```
 This takes only 4 seconds! Antother great thing is that `fs -text` command can automatically choose codec for uncompressing files:
 
-
-{% highlight r %}
+```{r, eval=FALSE}
 # write file splitted into 16 chunks
 repartition(sdf, 16)
 # save it with gzip compression
@@ -161,7 +155,7 @@ write.df(sdf,
 # read entire directory with gzipped files
 system.time(sdf_local <- fread(paste(hadoop_cmd, "fs -text /user/dmitry.selivanov/csv/test_spark/*")))
 # 4.784
-{% endhighlight %}
+```
 
 ## [dataconnector](https://github.com/vertica/r-dataconnector) 
 
@@ -174,8 +168,7 @@ One drawback of `data.table::fread` is that it can parse only flat files. Spark 
 
 Another nice thing is that it **doesn't requre hadoop and java/RJava**! 
 
-
-{% highlight r %}
+```{r, eval=FALSE}
 # save df in orc format
 # create 
 conf <- 
@@ -189,7 +182,7 @@ system.time(sdf_local <- orc2dataframe(
   "hdfs:///user/dmitry.selivanov/csv/test_spark/part-r-00000-1eb57e5d-2a98-489d-b2b0-a5dc44e9538b.orc", 
   hdfsConfigurationStr = conf))
 # 6.330
-{% endhighlight %}
+```
 
 ## other options
 

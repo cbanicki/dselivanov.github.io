@@ -1,9 +1,8 @@
 ---
 layout: null
-title : RSS Feed
 ---
 <?xml version="1.0" encoding="UTF-8"?>
-{% assign feed_file = "rss-r.xml" %}
+{% assign feed_file = "feed.xml" %}
 {% assign feed_posts = site.posts %}
 {% include feed.xml %}
 

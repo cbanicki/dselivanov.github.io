@@ -1,0 +1,47 @@
+---
+layout: post
+category : blog
+tags : [R, text-mining, algorithms]
+title: 'Fitting linear models in R via SGD (stochastic gradient descent) and Adagrad'
+author: "Dmitriy Selivanov"
+date: "31.10.2015"
+---
+Last weeks I'm actively workning on [text2vec](https://github.com/dselivanov/text2vec) (formerly tmlite)- R package, which provides tools for fast text vectorization and state-of-the art word embeddings(coming soon). There are a lot of changes from my previous [introduction post](http://dsnotes.com/blog/2015/09/16/tmlite-intro/), I'll write another dedicated post for that. Here I want to share tutorial on how to implement stochastic gradient descent algorithm in R.
+
+# Motivation
+One challenge I faced - was to implement efficient parallel asynchronous stochastic gradient descent for word cooccurence matrix factorization, which is proposed in [GloVe](http://nlp.stanford.edu/projects/glove/) paper.
+The problem is that last time I implemented some optimization algorithms was October 2011 during **ml-class** MOOC, which in 2012 transforms into Coursera (if I correctly remeber). Nowdays Data Scientists usually work with libraries/packages and very rarely implement something new by themselves.  
+So to refresh my knowledge I decided to implement simple **SGD algorithms for fitting logistic regression**
+
+# Data and 
+We will use IMDB movie review [dataset](http://ai.stanford.edu/~amaas/data/sentiment/), provided by [text2vec](https://github.com/dselivanov/text2vec). Our goal will be to classify sentiments, based on text of the moview review. **Simple binary classification task**.   
+First of all lets install latest development version:
+
+```{r, install, eval=FALSE}
+devtools::install_github('dselivanov/text2vec/tree/86051a17c86fee2ca88657ec09d741f6b61037c8')
+?movie_review
+```
+
+# Training
+Now we will try to implement our classifier step-by-step. First of all lets set up infrastructure for our experiments. Every algorithm requires `Document-Term matrix` as input. We will obtain it via `text2vec` functions. At the moment of writing this post most of them lacks of documentation, but eventually I'll add it.
+```{r, install, eval=FALSE}
+library(magrittr)
+library(text2vec)
+data("movie_review")
+# tokenize text
+tokenized_txt <- movie_review[['review']] %>% tolower %>% regexp_tokenizer
+# create hash-based unigram corpus containter with 2^18 columns. Don't use signed hashing.
+corpus <- new(HashCorpus, size = 2**18, use_signed_hash = FALSE, ngram_min = 1, ngram_max = 1)
+# vectorize text
+system.time(corpus$insert_document_batch(tokenized_txt))
+# 0 means return dtm in sparse_triplet_matrix form (dgTMatrix)
+dtm <- corpus$get_dtm()
+```
+
+## Baseline
+If the goal will be to do build such predictive model, I would go with `glmnet` package, which is fast, acccurate and provide nice cross-validation functionality out of the box. Also it works fine with sparse matrices and usually great for solving such type of tasks.  
+
+## Gradient descent
+## Stochastic Gradient descent
+## Minibatch Stochastic Gradient descent
+## Adagrad
