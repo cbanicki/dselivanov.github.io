@@ -3,8 +3,13 @@
 permalink: /:categories/:year/:month/:day/:title 
 
 exclude: [".rvmrc", ".rbenv-version", "README.md", "Rakefile", "changelog.md", "*.Rproj"]
-highlighter: pygments
 markdown: kramdown
+
+kramdown:
+  input: GFM
+  
+highlighter: rouge
+
 #gems:
 #  - jekyll-pandoc
 #markdown: pandoc

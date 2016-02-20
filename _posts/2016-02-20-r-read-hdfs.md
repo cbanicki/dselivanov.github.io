@@ -9,6 +9,8 @@ output:
   html_document: 
     highlight: rouge
 ---
+{% include JB/setup %}
+
 *Disclaimer: originally I planned to write post about R functions/packages which allow to read data from hdfs (with benchmarks), but in the end it became more like an overview of SparkR capabilities.*
 
 Nowadays working with "big data" almost always means working with hadoop ecosystem. A few years ago this also meant that you also would have to be a good java programmer to work in such environment - even simple [word count](https://hadoop.apache.org/docs/current/hadoop-mapreduce-client/hadoop-mapreduce-client-core/MapReduceTutorial.html#Example:_WordCount_v1.0) program took several dozens of lines of code. But 2-3 years ago things changed - thanks to [Apache Spark](http://spark.apache.org/) with its concise (but powerful!) functional-style API. It is written in Scala, but also has java, python and recently **R** APIs. 
