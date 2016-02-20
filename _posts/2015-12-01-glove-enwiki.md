@@ -64,7 +64,7 @@ Here we will follow excellent Radim's [Making sense of word2vec](http://rare-tec
 Warning: package 'ggplot2' was built under R version 3.2.3
 </pre>
 
-![plot of chunk unnamed-chunk-3](../figure/2015-12-01-glove-enwiki-unnamed-chunk-3-1.png)
+![plot of chunk unnamed-chunk-3](../articles/figure/2015-12-01-glove-enwiki-unnamed-chunk-3-1.png)
 
 You can find corresponding original repository [here](https://github.com/piskvorky/word_embeddings).
 
@@ -106,7 +106,7 @@ vocab <- vocabulary(it2)
 {% endhighlight %}
 
 On my machine it takes about *1150 sec*, while *gensim* `gensim.corpora.Dictionary()` takes about *2100 sec*. *RAW I/O* is about *~ 150 sec*.
-![plot of chunk unnamed-chunk-6](../figure/2015-12-01-glove-enwiki-unnamed-chunk-6-1.png)
+![plot of chunk unnamed-chunk-6](../articles/figure/2015-12-01-glove-enwiki-unnamed-chunk-6-1.png)
 
 ### Pruning vocabulary
 
@@ -241,11 +241,11 @@ Training **word2vec takes 401 minutes** and **accuracy = 0.687**.
 
 **As we can see, GloVe shows significantly better accuaracy.**
 
-![plot of chunk unnamed-chunk-12](../figure/2015-12-01-glove-enwiki-unnamed-chunk-12-1.png)
+![plot of chunk unnamed-chunk-12](../articles/figure/2015-12-01-glove-enwiki-unnamed-chunk-12-1.png)
 
 Closer look to resources usage:
 
-![plot of chunk unnamed-chunk-13](../figure/2015-12-01-glove-enwiki-unnamed-chunk-13-1.png)
+![plot of chunk unnamed-chunk-13](../articles/figure/2015-12-01-glove-enwiki-unnamed-chunk-13-1.png)
 
 ### Faster training
 
@@ -300,9 +300,9 @@ Training takes 50 minutes on 4-core machine and get ~68% accuracy:
 2015-11-30 15:14:06 - OVERALL ACCURACY = 0.6774  
 
 
-![plot of chunk unnamed-chunk-16](../figure/2015-12-01-glove-enwiki-unnamed-chunk-16-1.png)
+![plot of chunk unnamed-chunk-16](../articles/figure/2015-12-01-glove-enwiki-unnamed-chunk-16-1.png)
 
-![plot of chunk unnamed-chunk-17](../figure/2015-12-01-glove-enwiki-unnamed-chunk-17-1.png)
+![plot of chunk unnamed-chunk-17](../articles/figure/2015-12-01-glove-enwiki-unnamed-chunk-17-1.png)
 
 # Summary
 

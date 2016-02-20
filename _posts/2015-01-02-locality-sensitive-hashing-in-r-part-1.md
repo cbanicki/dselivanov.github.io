@@ -70,10 +70,10 @@ microbenchmark(jaccard(friends_set_1, friends_set_2))
 
 <pre class="output">
 Unit: microseconds
-                                  expr    min     lq     mean median
- jaccard(friends_set_1, friends_set_2) 32.686 33.961 38.39096 34.863
+                                  expr    min      lq     mean median
+ jaccard(friends_set_1, friends_set_2) 31.888 33.7735 37.29152 34.765
       uq     max neval
- 36.4005 145.162   100
+ 36.1155 141.597   100
 </pre>
 One operation takes 50 microseconds in average (on my machine). If we have 100000 of peoples with name _John Smith_ and we have to compare all pairs, total computation **will take more than 100 hours**!
 
