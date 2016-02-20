@@ -11,6 +11,7 @@ exclude:
   - Makefile
   - src
   - figure
+  - _drafts
 
 highlighter: rouge
 
@@ -18,7 +19,5 @@ markdown: kramdown
 
 comments: true
 
-analytics :
-  provider : google
-  google :
-      tracking_id : 'UA-56994099-1'
+gems:
+  - jekyll-redirect-from
