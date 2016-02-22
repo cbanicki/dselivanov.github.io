@@ -6,6 +6,8 @@ title: 'Analyzing texts with text2vec package'
 summary: text2vec tutorial
 author: "Dmitriy Selivanov"
 license: GPL (>= 2)
+redirect_from:
+  - /blog/text2vec/2015/11/09/text2vec/
 ---
 In the last weeks I have actively worked on [text2vec](https://github.com/dselivanov/text2vec) (formerly tmlite) - R package, which provides tools for fast text vectorization and state-of-the art word embeddings. 
 
