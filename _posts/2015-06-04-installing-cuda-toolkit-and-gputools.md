@@ -6,6 +6,8 @@ title: 'Installing cuda toolkit and related R packages'
 summary: setting up drivers and packages
 author: "Dmitriy Selivanov"
 license: GPL (>= 2)
+redirect_from:
+  - /blog/2015/06/04/installing-cuda-toolkit-and-gputools/
 src: 2015-06-04-installing-cuda-toolkit-and-gputools.Rmd
 ---
 

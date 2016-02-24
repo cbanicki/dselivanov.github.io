@@ -6,6 +6,8 @@ title: 'Locality Sensitive Hashing in R'
 summary: Introduction to Locality Sensitive Hashing in R
 author: "Dmitriy Selivanov"
 license: GPL (>= 2)
+redirect_from:
+  - /blog/2015/01/02/locality-sensitive-hashing-in-r-part-1/
 ---
 
 ## Introduction
