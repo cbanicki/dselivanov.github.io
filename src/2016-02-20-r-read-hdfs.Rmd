@@ -5,6 +5,7 @@ tags : [Spark, SparkR]
 title: 'Read from hdfs with R. Brief overview of SparkR.'
 summary: various tools for working with hdfs
 author: "Dmitriy Selivanov"
+mathjax: true
 license: GPL (>= 2)
 redirect_from:
   - /blog/2016/02/20/r-read-hdfs/

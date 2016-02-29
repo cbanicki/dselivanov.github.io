@@ -6,6 +6,7 @@ title: 'Locality Sensitive Hashing in R'
 summary: Introduction to Locality Sensitive Hashing in R
 author: "Dmitriy Selivanov"
 license: GPL (>= 2)
+mathjax: true
 redirect_from:
   - /blog/2015/01/02/locality-sensitive-hashing-in-r-part-1/
 src: 2015-01-02-locality-sensitive-hashing-in-r-part-1.Rmd
@@ -72,10 +73,10 @@ microbenchmark(jaccard(friends_set_1, friends_set_2))
 
 <pre class="output">
 Unit: microseconds
-                                  expr    min lq     mean median      uq
- jaccard(friends_set_1, friends_set_2) 40.337 44 48.38897 45.648 47.8165
-     max neval
- 186.314   100
+                                  expr   min      lq     mean  median
+ jaccard(friends_set_1, friends_set_2) 32.62 34.2485 37.92605 35.2385
+      uq     max neval
+ 36.6465 150.625   100
 </pre>
 One operation takes 50 microseconds in average (on my machine). If we have 100000 of peoples with name _John Smith_ and we have to compare all pairs, total computation **will take more than 100 hours**!
 

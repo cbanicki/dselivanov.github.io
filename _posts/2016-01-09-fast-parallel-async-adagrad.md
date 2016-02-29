@@ -4,6 +4,7 @@ tags : [text2vec, Rcpp, RcppParallel, GloVe]
 title: 'text2vec GloVe implementation details'
 summary: Writing fast parallel asynchronous SGD/AdaGrad.
 author: "Dmitriy Selivanov"
+mathjax: true
 license: GPL (>= 2)
 src: 2016-01-09-fast-parallel-async-adagrad.Rmd
 ---
@@ -13,23 +14,23 @@ Before reading this post, I very recommend to read:
 2. [Jon Gauthier's post](http://www.foldl.me/2014/glove-python/), which provides detailed explanation of python implementation. This post helps me a lot with C++ implementation.
 
 
-# Word embedding
+## Word embeddings
 
-After Tomas Mikolov et al. released [word2vec](https://code.google.com/p/word2vec/) tool, there was a boom of articles about words vector representations. One of the greatest is [GloVe](http://nlp.stanford.edu/projects/glove/), which did a big thing while explaining how such algorithms work and refolmulating word2vec optimizations as special kind of factoriazation for word cooccurences matrix. 
+After Tomas Mikolov et al. released [word2vec](https://code.google.com/p/word2vec/) tool, there was a boom of articles about words vector representations. One of the greatest is [GloVe](http://nlp.stanford.edu/projects/glove/), which did a big thing by explaining how such algorithms work. It also refolmulates word2vec optimization as a special kind of factoriazation for word cooccurences matrix. 
 
-This post will consists of two main parts:
+This post is devided into two main parts:
 
 1. Very brief introduction into GloVe algorithm.
-2. Details of implementation. I will show how to write fast, parallel asynchronous SGD with RcppParallel with adaptive learning rate in C++ using Intel TBB and [RcppParallel](http://rcppcore.github.io/RcppParallel/).
+2. Details of implementation. I will show how to write fast parallel asynchronous SGD with RcppParallel with adaptive learning rate in C++ using Intel TBB and [RcppParallel](http://rcppcore.github.io/RcppParallel/).
 
 
-# Introduction to GloVe algorithm
+## Introduction to GloVe algorithm
 
-GloVe algorithm consists of following steps:
+GloVe algorithm consists of the following steps:
 
-1. Collect word cooccurence statistics in a form of word coocurence matrix $$X$$. Each element $$X_{ij}$$ of such matrix represents measure of how often *word i* appears in context of *word j*. Usually we scan our corpus in followinf manner: for each term we look for context terms withing some area - *window_size* before and *window_size* after. Also we give less weight for more distand words (usually  $$decay = 1/offset$$).
+1. Collect word cooccurence statistics in the form of word coocurence matrix $$X$$. Each element $$X_{ij}$$ of such matrix represents measure of how often *word i* appears in context of *word j*. Usually we scan our corpus in the following manner: for each term we look for context terms within some area - *window_size* before and *window_size* after. Also we give less weight for more distant words (usually  $$decay = 1/offset$$).
 2. Define soft constraint for each word pair: $$w_i^Tw_j + b_i + b_j = log(X_{ij})$$. Here $$w_i$$ - vector for main word, $$w_j$$ - vector for context word, $$b_i$$, $$b_j$$ - scalar biases for main and context words.
-3. Define cost function $$J = \sum_{i=1}^V \sum_{j=1}^V \; f(X_{ij}) ( w_i^T w_j + b_i + b_j - \log X_{ij})^2$$. Here $$f$$ is a weighting function which help us to prevent learning only from exremly common word pairs. GloVe authors choose following fucntion:
+3. Define cost function $$J = \sum_{i=1}^V \sum_{j=1}^V \; f(X_{ij}) ( w_i^T w_j + b_i + b_j - \log X_{ij})^2$$. Here $$f$$ is a weighting function which help us to prevent learning only from exremely common word pairs. GloVe authors choose the following function:
 
 $$
 f(X_{ij}) = 
@@ -39,13 +40,13 @@ f(X_{ij}) =
 \end{cases}
 $$
 
-# Implementation
-Main challenges I faced during implementation:
+## Implementation
+The main challenges I faced during implementation:
 
 1. Efficient cooccurence matrix creation.
 1. Implementation of efficient SGD for objective cost function minimization.
 
-## Cooccurence matrix creation
+### Cooccurence matrix creation
 There are a few main issues with term cooccurence matrix (*tcm*):
 
 1. *tcm* should be sparse. We should be able to construct *tcm* for large vocabularies ( > 100k words).
@@ -72,7 +73,7 @@ For details see [this](http://stackoverflow.com/a/24693169/1069256) and [this](h
 
 Also note, that our cooccurence matrix is symmetrical, so internally we will store only elements above main diagonal.
 
-## Stochastic gradient descent
+### Stochastic gradient descent
 
 Now we should implement efficient parallel asynchronous stochastic gradient descent for word cooccurence matrix factorization, which is proposed in [GloVe](http://nlp.stanford.edu/projects/glove/) paper. Interesting thing - SGD inherently is serial algoritms, but when your problem is sparse, you can do asynchronous updates without any locks and achieve speedup proportional to number of cores on your machine! If you didn't read [HOGWILD!](https://www.eecs.berkeley.edu/~brecht/papers/hogwildTR.pdf), I recomment to do that.
 
@@ -80,9 +81,7 @@ Let me remind formulation of SGD. We try to move $$x_t$$ parameters in a minimiz
 
 $$x_{t+1} = x_t − \alpha g_t$$
 
-So, we have to calculate gradients for our cost function:
-
-$$J = \sum_{i=1}^V \sum_{j=1}^V f(X_{ij}) ( w_i^T w_j + b_i + b_j - \log X_{ij} )^2$$:
+So, we have to calculate gradients for our cost function $$J = \sum_{i=1}^V \sum_{j=1}^V f(X_{ij}) ( w_i^T w_j + b_i + b_j - \log X_{ij} )^2$$:
 
 $$\frac{\partial J}{\partial w_i} = f(X_{ij}) w_j ( w_i^T w_j + b_i + b_j - \log X_{ij})$$
 
@@ -92,32 +91,32 @@ $$\frac{\partial J}{\partial b_i} = f(X_{ij}) (w_i^T w_j + b_i + b_j - \log X_{i
 
 $$\frac{\partial J}{\partial b_j} = f(X_{ij}) (w_i^T w_j + b_i + b_j - \log X_{ij})$$
 
-## AdaGrad
+### AdaGrad
 
 We will use modification of SGD - [AdaGrad](http://www.magicbroom.info/Papers/DuchiHaSi10.pdf) algoritm. It automaticaly determines per-feature learning rate by tracking historical gradients, so that frequently occurring features
-in the gradients get small learning rates and infrequent features get higher ones. For AdaGrad implementation deteails see excellents [Notes on AdaGrad](http://www.ark.cs.cmu.edu/cdyer/adagrad.pdf) by Chris Dyer. 
+in the gradients get small learning rates and infrequent features get higher ones. For AdaGrad implementation details see excellent [Notes on AdaGrad](http://www.ark.cs.cmu.edu/cdyer/adagrad.pdf) by Chris Dyer. 
 
-Formulation of AdaGrad step $$t$$ and feature $$i$$ is following:
+Formulation of AdaGrad step $$t$$ and feature $$i$$ is the following:
 
 $$x_{t+1, i} = x_{t, i} − \frac{\alpha}{\sqrt{\sum_{\tau=1}^{t-1}} g_{\tau,i}^2} g_{t,i}$$
 
 As we can see, at each iteration $$t$$ we need to keep track of sum over all historical gradients. 
 
-## Parallel asynchronous AdaGrad
+### Parallel asynchronous AdaGrad
 
-Actually we will use modification of AdaGrad - *HOGWILD-style* asynchronous AdaGrad :-) Main idea of *HOGWILD!* algorithm is very simple - don't use any syncronizations. If your problem is sparse, allow threads to overwrite each other! This works and works fine. Again, see [HOGWILD!](http://www.eecs.berkeley.edu/~brecht/papers/hogwildTR.pdf) paper for details and theoretical proof.
+Actually we will use modification of AdaGrad - *HOGWILD-style* asynchronous AdaGrad :-) Main idea of *HOGWILD!* algorithm is very simple - don't use any synchronizations. If your problem is sparse, allow threads to overwrite each other! This works and works fine. Again, see [HOGWILD!](http://www.eecs.berkeley.edu/~brecht/papers/hogwildTR.pdf) paper for details and theoretical proof.
 
-## Code
+### Code
 
 Now lets put all into the code.
 
-As seen from analysis above, `GloveFit` class should consists following parameters:
+As seen from the analysis above, `GloveFit` class should consist of the following parameters:
 
-1. word vecvors `w_i`, `w_j` (for main and context words).
+1. word vectors `w_i`, `w_j` (for main and context words).
 2. biases `b_i`, `b_j`.
 3. word vectors square gradients `grad_sq_w_i`, `grad_sq_w_j` for adaptive learning rates.
 4. word biases square gradients `grad_sq_b_i`, `grad_sq_b_j` for adaptive learning rates.
-5. `lerning_rate`, `max_cost` and other scalar model parameters.
+5. `learning_rate`, `max_cost` and other scalar model parameters.
 
 
 {% highlight cpp %}
@@ -143,7 +142,7 @@ private:
 
 ### Single iteration
 
-Now we should to [initialize](https://github.com/dselivanov/text2vec/blob/master/src/GloveFit.h#L8-L41) parameters and perform iteration of SGD:
+Now we should [initialize](https://github.com/dselivanov/text2vec/blob/1341dc73874c10dc78a957d3a5838feb45d9bc87/src/GloveFit.h#L8-L41) parameters and perform iteration of SGD:
 
 
 {% highlight sh %}
@@ -160,26 +159,25 @@ for_each (<i, j, x> ) {
 }
 return global_cost;
 {% endhighlight %}
-For actual text2vec code (with a few tricks) check [this loop](https://github.com/dselivanov/text2vec/blob/master/src/GloveFit.h#L52-L134).
 
 ### OpenMP
 
-As discussed above, all these steps can be performed in parallel loop (over all non-zero word-coocurence scores). This can be easily done via OpenMP `parallel for` and reduction: `#pragma omp parallel for reduction(+:global_cost)`. **But there is one significant issue** with this approach - it is very hard to make portable R-package with OpenMP support. By default it will work only on linux distributions, because:
+As discussed above, all these steps can be performed in parallel loop (over all non-zero word-coocurence scores). This can be easily done via OpenMP `parallel for` and reduction: `#pragma omp parallel for reduction(+:global_cost)`. **But there is one significant issue** with this approach - it is very hard to make portable R-package with OpenMP support. By default it will work only on linux distributions because:
 
-1. default `clang` on OS X don't support OpenMP (of course you can install `clang-omp` or `gcc` from brew, but this also could be tricky).
-1. Rtools begins support of OpenMP on Windows only in 2015. But even modern realization has substantial overheads. 
+1. default `clang` on OS X doesn't support OpenMP (of course you can install `clang-omp` or `gcc` with `brew` but this also could be tricky).
+1. Rtools starts support of OpenMP on Windows only in 2015. But even modern implementation has substantial overheads. 
 
 For more details see [OpenMP-support](https://cran.r-project.org/doc/manuals/r-release/R-exts.html#OpenMP-support) section of Writing R Extensions manual.
 
 ### Intel TBB
 
-Luckily we have a better alternative - [Intel Thread Building Blocks](https://www.threadingbuildingblocks.org/) library and [RcppParallel](http://rcppcore.github.io/RcppParallel/) package which provides `RVector` and `RMatrix` wrapper classes for safe and convenient access to R data structures in a multi-threaded environment! Moreover **it "just works" on main platforms - OS X, Windows, Linux**. Have very positive experience with this library, thanks to Rcpp Core team and especially to JJ Allaire. 
+Luckily we have a better alternative - [Intel Thread Building Blocks](https://www.threadingbuildingblocks.org/) library and [RcppParallel](http://rcppcore.github.io/RcppParallel/) package which provides `RVector` and `RMatrix` wrapper classes for safe and convenient access to R data structures in a multi-threaded environment! Moreover **it *just works* on main platforms - OS X, Windows, Linux**. 
 
-Using TBB is little bit trickier, then writing simple OpenMP `#pragma` directives. You should implement *functor* which operates on a chunk of data and call `parallelReduce` or `parallelFor` on entire data collection. You can find useful (and simple) examples at [RcppParallel examples](http://rcppcore.github.io/RcppParallel/#examples) section.
+Using TBB is a little bit trickier than writing simple OpenMP `#pragma` directives. You should implement *functor* which operates on a chunk of data and call `parallelReduce` or `parallelFor` on entire data collection. You can find useful (and simple) examples at [RcppParallel examples](http://rcppcore.github.io/RcppParallel/#examples) section.
 
-### Putting all together
+### Putting it all together
 
-For now suppose, we have `partial_fit` method in `GloveFit` class with following signature ([see actual code here](https://github.com/dselivanov/text2vec/blob/master/src/GloveFit.h#L52-L134)):
+For now suppose we have `partial_fit` method in `GloveFit` class with following signature ([see actual code here](https://github.com/dselivanov/text2vec/blob/1341dc73874c10dc78a957d3a5838feb45d9bc87/src/GloveFit.h#L52-L134)):
 
 
 {% highlight cpp %}
@@ -192,11 +190,11 @@ double partial_fit( size_t begin,
 It takes 
 
 1. *tcm* in sparse triplet form `<x_irow, x_icol, x_val>`  
-1. `begin` and `end` pointers for a range on which we want to perform our SDG.
+1. `begin` and `end` pointers for a range on which we want to perform our SGD.
 
-And performs SGD steps over this range - [updates word vectors, gradients, etc](#single-iteration). At the end it retruns value of accumulated cost function. Note, that internally this method modifies values members of the class.
+Then it performs SGD steps over this range - [updates word vectors, gradients, etc](#single-iteration). As a result it returns value of accumulated cost function. Note that internally this method modifies input object.
 
-Also note, that signature of `partial_fit` is very similar to what we have to implement in our TBB functor. Now we are ready to write it:
+Also note that signature of `partial_fit` is very similar to what we have to implement in our TBB functor. Now we are ready to write it:
 
 {% highlight cpp %}
 struct AdaGradIter : public Worker {
@@ -243,7 +241,7 @@ struct AdaGradIter : public Worker {
     x_irow(x_irowR), x_icol(x_icolR), x_val(x_valR),
     fit(fit), global_cost(0) {}
     
-  // constructor callesd at split
+  // constructor called at split
   AdaGradIter(const AdaGradIter& AdaGradIter, Split):
     x_irow(AdaGradIter.x_irow), x_icol(AdaGradIter.x_icol), x_val(AdaGradIter.x_val), 
     fit(AdaGradIter.fit), global_cost(0) {}
@@ -259,9 +257,9 @@ struct AdaGradIter : public Worker {
   }
 };
 {% endhighlight %}
-As you can see, it is very similar to example form RcppParallel site. One diffrence - it has side-effects. By calling `partial_fit` it modifies internal state of the input instance of `GloveFit` class (which actually contains our GloVe model).
+As you can see, it is very similar to example form RcppParallel site. One difference - it has side-effects. By calling `partial_fit` it modifies internal state of the input instance of `GloveFit` class (which actually contains our GloVe model).
 
-Now lets write `GloveFitter` class, which will be callable from R via `Rcpp-modules`. It will act as interface for fitting our model and take all input model parameters such as vocabulary size, desired word vectors size, initial AdaGrad learning rate, etc. Also we want to track cost between iterations and want to be able to perform some early stopping strategy between SGD iterations. For that purpose we keep our model in C++ class, so we can modify it "in place" at each SGD iteration (which can be problematic in R)
+Now lets write `GloveFitter` class which will be callable from R via `Rcpp-modules`. It will act as interface for fitting our model and take all input model parameters such as vocabulary size, desired word vectors size, initial AdaGrad learning rate, etc. Also we want to track cost between iterations and want to be able to perform some early stopping strategy between SGD iterations. For that purpose we keep our model in C++ class, so we can modify it "in place" at each SGD iteration (which can be problematic in R)
 
 {% highlight cpp %}
 class GloveFitter {

@@ -6,6 +6,7 @@ title: 'GloVe vs word2vec revisited.'
 summary: Experiments on english wikipedia. GloVe and word2vec.
 author: "Dmitriy Selivanov"
 license: GPL (>= 2)
+mathjax: true
 redirect_from:
   - /blog/text2vec/2015/12/01/glove-enwiki/
 ---
