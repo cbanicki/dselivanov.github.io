@@ -1,0 +1,251 @@
+---
+title: "text2vec 0.3"
+author: "Dmitriy Selivanov"
+layout: post
+output: html_document
+license: GPL (>= 2)
+summary: text2vec 0.3 preview
+tags: text2vec
+categories:
+- blog
+- text2vec
+---
+
+Today I'm pleased to announce preview of the new version of text2vec. It is located in the 0.3 development branch, but very soon (probably in about a week) it will be merged into master.
+
+To reproduce examples below, please install `text2vec@0.3` from github:
+```{r, install, eval=FALSE}
+devtools::install_github('dselivanov/text2vec@0.3')
+```
+
+Also **I'm waiting for feedback from text2vec users, please spend a few minutes**:
+
+1. What APIs are not clear / not intuitive?
+1. What functionality is missing?
+1. Do you have any problems with speed / RAM usage?
+
+# Overview
+
+**In two words: `text2vec` became faster and more user-friendly**. During the work on this version I almost didn't touch underlying core C++ code and focused on high-level features and usability. First I will briefly describe main improvements and then will provide full-featured example. 
+
+In this post i would like to highlight the following improvements: 
+
+1. important **bugfix**
+1. `dtm` keeps document ids as rownames
+1. several **API breaks** - some functions removed, some renamed and some have another default arguments
+1. performance improvements - **all core functions have parallel mode**
+
+Full list of the features/changes available at github and marked with [0.3 tag](https://github.com/dselivanov/text2vec/milestones/0.3).
+
+## Bugfix
+
+There was one significant bug: when last document has no terms (at least from vocabulary), i.e. last row of `dtm` has all zeros, `get_dtm()` function omitted this last row. So `dtm` had less rows than number of documents in `corpus`. Now fixed.
+
+
+## Preserving document ids in `corpus` and `dtm`
+
+I'm not only the developer of the `text2vec`, but also probably the most active user. Since the first public release I felt that I needed to improve some rough edges. One of the most obviously missing things was lack of mechanism for keeping document `ids` during `corpus` (and `dtm`) construction. Now it is straightforward - if input of the `itoken` function has names, these names will be used as documents `ids`. 
+
+## New high-level API
+
+In 0.2 `corpus` was the central object. We can think about it as a container with reference semantics, which allow us to perform vectorization and collection of terms coocurence statistics **simulteniously**. After the corpus is created, only the following two functions are useful in 99% of cases - `get_dtm` and `get_tcm`. After that, users usually work with matrices. This means that `corpus` actually is an intermediate object and mainly should be used internally. In real life users usually need *Document-Term matrix (dtm)* **or** *Term-Cooccurence matrix (tcm)* which simplifies the process of transition from raw text to a vector space.
+
+In 0.3 I introduce new higher-level API for direct `dtm` and `tcm` creation - `create_dtm()` and `create_tcm()` functions. Such simplification also allows me to implement efficient concurrent growing of `dtm` and `tcm`. `create_dtm()` and `create_tcm()` internally use `create_corpus()`, but hide all gory details and care about parallel execution. Experienced users, who need simulteniously vectorize corpus and collect cooccurence statistics, can still use `create_corpus()` and corresponding `get_dtm()`, `get_tcm` functions. 
+
+Another refinement - is the introduction of `vectorizer` concept. `vectorizer` is the function which performs mapping from raw text space to vector space. There are 2 kinds of vectorizers:
+
+1. `vocab_vectorizer` which uses vocabulary to perfrom bag-of-ngrams vectorization;
+1. `hash_vectorizer` which uses feature hashing (or hashing trick);
+
+## Iterators
+
+As it was pointed out [here](https://github.com/dselivanov/text2vec/issues/69), in case of vocabulary vectorization, we perform 2 passes over input source. This means we read, preprocess and tokenize twice. While I/O usually is not an issue (if you use efficient reader like `data.table::fread` or functions from `readr` package), preprocessing can occupy a significant amount of time. For this reason I created `itoken` S3 method which works with `list` of `character` vectors - list of tokens. Now user can tokenize input and then reuse list of tokens in `vocabulary`, `dtm`, `tcm` construction. See examples below.
+
+## Vocabulary 
+
+There were several improvements to vocabulary construction:
+
+1. stopwords filtering during vocanulary construction (especially usefull for ngrams with `n > 1`);
+1. `vocabulary` can be built in parallel using all your CPU cores;
+1. `prune_vocabulary()` became slightly more efficient - it performs less unnecessary computations;
+
+
+## Transformers
+
+All transformers renamed, now all starts with `transformer_*` (this was done for more convenient work with autocompletion):
+
+* `transformer_binary`
+* `transformer_tfidf`
+* `transformer_tf`
+* `transformer_filter_commons` still useful, even with some intersection with `prune_vocabulary`
+
+The following example demonstrates new pipeline with many text2vec features:
+(note how flexible text2vec can be! thanks to functional style)
+
+```{r, warning=FALSE}
+library(text2vec)
+# for stemming
+library(SnowballC)
+data("movie_review")
+
+stem_tokenizer <- function(x, tokenizer = word_tokenizer) {
+  x %>% 
+    tokenizer %>% 
+    # poerter stemmer
+    lapply(wordStem, 'en')
+}
+
+# create list of stemmed tokens
+# each element of list is a representation of original document
+tokens <- movie_review$review %>% 
+  tolower %>% 
+  stem_tokenizer
+
+# keep document ids in dtm and corpus!
+names(tokens) <- movie_review$id
+
+stopwords <- c("i", "me", "my", "myself", "we", "our", "ours", "ourselves", "you", "your", "yours") %>%
+  # here we stem stopwords, because stop-words filtering would be performed after tokenization!
+  wordStem('en')
+
+it <- itoken(tokens)
+vocab <- vocabulary(it, ngram = c(1L, 1L), stopwords = stopwords)
+
+# remove common and uncommon words  
+pruned_vocab = prune_vocabulary(vocab,  term_count_min = 5, doc_proportion_max = 0.5)
+str(pruned_vocab)
+```
+
+One important note. In current R realization, **iterators are mutable**. So at this point our iterator is empty:
+```{r}
+try(iterators::nextElem(it))
+```
+
+So before `corpus` / `dtm` / `tcm` construction we need to reinitialise it. Here we create `dtm` directly:
+
+```{r, warning=FALSE}
+it <- itoken(tokens)
+v_vectorizer <- vocab_vectorizer(pruned_vocab)
+dtm <- create_dtm(it, v_vectorizer)
+# check  that dtm keep documents names/ids as rownames
+head(rownames(dtm))
+identical(rownames(dtm), movie_review$id)
+```
+
+Or `tcm`:
+
+```{r, warning=FALSE}
+it <- itoken(tokens)
+cooccurence_vectorizer <- vocab_vectorizer(pruned_vocab, grow_dtm = FALSE, skip_grams_window = 5L)
+tcm <- create_tcm(it, cooccurence_vectorizer)
+```
+
+Old-style simultenious vectorization and collection of cooccurence statistics:
+
+```{r, warning=FALSE}
+it <- itoken(tokens)
+v_vectorizer <- vocab_vectorizer(pruned_vocab, grow_dtm = TRUE, skip_grams_window = 5L)
+corpus <- create_corpus(it, v_vectorizer)
+dtm <- get_dtm(corpus)
+tcm <- get_tcm(corpus)
+```
+
+Another option is to use `hash_vectorizer`. Procedure is the same:
+
+```{r, warning=FALSE}
+# create hash vectorizer for unigrams and bigrams
+h_vectorizer <- hash_vectorizer(hash_size = 2 ^ 16, ngram = c(1L, 2L))
+it <- itoken(tokens)
+dtm <- create_dtm(it, h_vectorizer)
+```
+
+
+## Parallel mode
+
+Now `create_dtm`, `create_tcm`, `vocabulary` take advantage of multicore machines and do it in transparent manner. In contrast to GloVe fitting which uses low-level thread parallelism via `RcppParallel`, other functions use standart R high-level parallelism on top of `foreach` package. They are flexible and can use diffrent parallel backends - `doParallel`, `doRedis`, etc. But **user should remember that such high-level parallelism can involve significant overhead**.
+
+Only two things user should perform manually to take advantage of multicore machine: 
+
+1. prepare splits of input data in a form of `list` of `itoken` iterators.
+1. register parallel backend
+
+Here is simple example with timings:
+
+```{r, warning=FALSE}
+N_WORKERS <- 2
+library(doParallel)
+registerDoParallel(N_WORKERS)
+
+# "jobs" is a list of itoken iterators!
+N_SPLITS <- 2
+jobs <- tokens %>% 
+  split_into(N_SPLITS) %>% 
+  lapply(itoken)
+
+# performance comparison between serial and parallel versions
+
+# vocabulary creation
+system.time(v <- vocabulary(itoken(tokens), stopwords = stopwords))
+system.time(v <- vocabulary(jobs, stopwords = stopwords))
+
+# dtm vocabulary vectorization
+v_vectorizer <- vocab_vectorizer(v)
+system.time(dtm <- create_dtm(itoken(tokens), vectorizer = v_vectorizer))
+system.time(dtm <- create_dtm(jobs, vectorizer = v_vectorizer))
+
+# dtm feature hashing
+h_vectorizer <- hash_vectorizer()
+system.time(dtm <- create_dtm(itoken(tokens), vectorizer = h_vectorizer))
+system.time(dtm <- create_dtm(jobs, vectorizer = h_vectorizer))
+
+# tcm
+tcm_vectorizer <- vocab_vectorizer(v, grow_dtm = T, skip_grams_window = 5)
+system.time(tcm1 <- create_dtm(itoken(tokens), vectorizer = tcm_vectorizer))
+system.time(tcm2 <- create_dtm(jobs, vectorizer = tcm_vectorizer))
+```
+
+As you can see, speedup is not perfect. This happened because, **R's high-level parallelism has significant overhead on small tasks. On larger tasks you can expect almost linear speedup**!
+
+## Bonus: how fast is fast?
+
+On 16-core machine I was able to perform vectorization (unigrams) of english wikipedia (13 gb of text, 4M of documents) in 2.5 minutes using hash vectorizer and in 6 minutes using vocabulary vectorizer. Timings include time spent for reading from disk! Resulted `dtm` was about 13gb and at peak R processes consumes about 30gb of RAM. (Try to do it with **any** other R package or python module).
+
+Here is code:
+```{r, eval=FALSE}
+library(text2vec)
+library(data.table)
+
+library(doParallel)
+registerDoParallel(16)
+
+start <- Sys.time()
+# tab-separated wikipedia "article_title \t article_body"
+# article_body is "single splace" separated
+
+reader <- function(x) {
+  fread(x, sep = '\t', header = F, select = 2, colClasses = rep('character', 2))[[1]]
+}
+
+# each file is roughly 100mb
+fls <- list.files("~/datasets/enwiki_splits/", full.names = T)
+
+# jobs are simply list of itoken iterators. Each element is separate job in a separate process.
+# after finish the will be efficiently combined. (especially efficiently in case of `dgTMatrix`)
+jobs <- fls %>% 
+  # combine files into 64 groups, so we will have 64 jobs
+  split_into(64) %>% 
+  lapply(function(x) x %>% ifiles(reader_function = reader) %>% itoken)
+
+# alternatively can process each file as separate job
+# jobs <- lapply(fls, function(x) x %>% ifiles(reader_function = reader) %>% itoken)
+
+v <- vocabulary(jobs) %>% 
+  prune_vocabulary(term_count_min = 10, doc_proportion_max = 0.2)
+
+dtm <- create_dtm(jobs, vocab_vectorizer(v), type = 'dgTMatrix')
+
+finish <- Sys.time()
+```
+
+
+
