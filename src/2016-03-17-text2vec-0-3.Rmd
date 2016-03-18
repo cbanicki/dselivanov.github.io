@@ -1,14 +1,12 @@
 ---
-title: "text2vec 0.3"
-author: "Dmitriy Selivanov"
 layout: post
-output: html_document
+category : [blog]
+tags : [text2vec]
+title: 'text2vec 0.3'
+summary: Introducing preview of v0.3 - `text2vec` became faster and more user-friendly.
+author: "Dmitriy Selivanov"
+mathjax: true
 license: GPL (>= 2)
-summary: text2vec 0.3 preview
-tags: text2vec
-categories:
-- blog
-- text2vec
 ---
 
 Today I'm pleased to announce preview of the new version of text2vec. It is located in the 0.3 development branch, but very soon (probably in about a week) it will be merged into master.
