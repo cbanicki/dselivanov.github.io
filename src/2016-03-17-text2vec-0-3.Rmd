@@ -8,6 +8,7 @@ author: "Dmitriy Selivanov"
 mathjax: true
 license: GPL (>= 2)
 ---
+*[updated 2016-03-21](#updates)*
 
 Today I'm pleased to announce preview of the new version of text2vec. It is located in the 0.3 development branch, but very soon (probably in about a week) it will be merged into master.
 
@@ -57,30 +58,30 @@ Another refinement - is the introduction of `vectorizer` concept. `vectorizer` i
 
 ## Iterators
 
-As it was pointed out [here](https://github.com/dselivanov/text2vec/issues/69), in case of vocabulary vectorization, we perform 2 passes over input source. This means we read, preprocess and tokenize twice. While I/O usually is not an issue (if you use efficient reader like `data.table::fread` or functions from `readr` package), preprocessing can occupy a significant amount of time. For this reason I created `itoken` S3 method which works with `list` of `character` vectors - list of tokens. Now user can tokenize input and then reuse list of tokens in `vocabulary`, `dtm`, `tcm` construction. See examples below.
+As it was pointed out [here](https://github.com/dselivanov/text2vec/issues/69), in case of vocabulary vectorization, we perform 2 passes over input source. This means we read, preprocess and tokenize twice. While I/O usually is not an issue (if you use efficient reader like `data.table::fread` or functions from `readr` package), preprocessing can occupy a significant amount of time. For this reason I created `itoken` S3 method which works with `list` of `character` vectors - list of tokens. Now user can tokenize input and then reuse list of tokens in `create_vocabulary`, `dtm`, `tcm` construction. See examples below.
 
 ## Vocabulary 
 
 There were several improvements to vocabulary construction:
 
 1. stopwords filtering during vocanulary construction (especially usefull for ngrams with `n > 1`);
-1. `vocabulary` can be built in parallel using all your CPU cores;
+1. `create_vocabulary` can be built in parallel using all your CPU cores;
 1. `prune_vocabulary()` became slightly more efficient - it performs less unnecessary computations;
 
 
 ## Transformers
 
-All transformers renamed, now all starts with `transformer_*` (this was done for more convenient work with autocompletion):
+All transformers renamed, now all starts with `transform_*` (this was done for more convenient work with autocompletion):
 
-* `transformer_binary`
-* `transformer_tfidf`
-* `transformer_tf`
-* `transformer_filter_commons` still useful, even with some intersection with `prune_vocabulary`
+* `transform_binary`
+* `transform_tfidf`
+* `transform_tf`
+* `transform_filter_commons` still useful, even with some intersection with `prune_vocabulary`
 
 The following example demonstrates new pipeline with many text2vec features:
 (note how flexible text2vec can be! thanks to functional style)
 
-```{r, warning=FALSE}
+```{r, warning=FALSE, message=FALSE}
 library(text2vec)
 # for stemming
 library(SnowballC)
@@ -107,7 +108,7 @@ stopwords <- c("i", "me", "my", "myself", "we", "our", "ours", "ourselves", "you
   wordStem('en')
 
 it <- itoken(tokens)
-vocab <- vocabulary(it, ngram = c(1L, 1L), stopwords = stopwords)
+vocab <- create_vocabulary(it, ngram = c(1L, 1L), stopwords = stopwords)
 
 # remove common and uncommon words  
 pruned_vocab = prune_vocabulary(vocab,  term_count_min = 5, doc_proportion_max = 0.5)
@@ -160,7 +161,7 @@ dtm <- create_dtm(it, h_vectorizer)
 
 ## Parallel mode
 
-Now `create_dtm`, `create_tcm`, `vocabulary` take advantage of multicore machines and do it in transparent manner. In contrast to GloVe fitting which uses low-level thread parallelism via `RcppParallel`, other functions use standart R high-level parallelism on top of `foreach` package. They are flexible and can use diffrent parallel backends - `doParallel`, `doRedis`, etc. But **user should remember that such high-level parallelism can involve significant overhead**.
+Now `create_dtm`, `create_tcm`, `create_vocabulary` take advantage of multicore machines and do it in transparent manner. In contrast to GloVe fitting which uses low-level thread parallelism via `RcppParallel`, other functions use standart R high-level parallelism on top of `foreach` package. They are flexible and can use diffrent parallel backends - `doParallel`, `doRedis`, etc. But **user should remember that such high-level parallelism can involve significant overhead**.
 
 Only two things user should perform manually to take advantage of multicore machine: 
 
@@ -169,9 +170,10 @@ Only two things user should perform manually to take advantage of multicore mach
 
 Here is simple example with timings:
 
-```{r, warning=FALSE}
+```{r, warning=FALSE, message=FALSE}
 N_WORKERS <- 2
 library(doParallel)
+library(microbenchmark)
 registerDoParallel(N_WORKERS)
 
 # "jobs" is a list of itoken iterators!
@@ -183,23 +185,28 @@ jobs <- tokens %>%
 # performance comparison between serial and parallel versions
 
 # vocabulary creation
-system.time(v <- vocabulary(itoken(tokens), stopwords = stopwords))
-system.time(v <- vocabulary(jobs, stopwords = stopwords))
-
+microbenchmark(
+  vocab_serial <- create_vocabulary(itoken(tokens), stopwords = stopwords), 
+  vocab_parallel <- create_vocabulary(jobs, stopwords = stopwords), 
+  times = 1
+)
 # dtm vocabulary vectorization
-v_vectorizer <- vocab_vectorizer(v)
-system.time(dtm <- create_dtm(itoken(tokens), vectorizer = v_vectorizer))
-system.time(dtm <- create_dtm(jobs, vectorizer = v_vectorizer))
-
+v_vectorizer <- vocab_vectorizer(vocab_serial)
 # dtm feature hashing
 h_vectorizer <- hash_vectorizer()
-system.time(dtm <- create_dtm(itoken(tokens), vectorizer = h_vectorizer))
-system.time(dtm <- create_dtm(jobs, vectorizer = h_vectorizer))
+# tcm vectorization
+tcm_vectorizer <- vocab_vectorizer(vocab_serial, grow_dtm = T, skip_grams_window = 5)
 
-# tcm
-tcm_vectorizer <- vocab_vectorizer(v, grow_dtm = T, skip_grams_window = 5)
-system.time(tcm1 <- create_dtm(itoken(tokens), vectorizer = tcm_vectorizer))
-system.time(tcm2 <- create_dtm(jobs, vectorizer = tcm_vectorizer))
+microbenchmark(
+  vocab_dtm_serial <- create_dtm(itoken(tokens), vectorizer = v_vectorizer),
+  vocab_dtm_parallel <- create_dtm(jobs, vectorizer = v_vectorizer),
+  hash_dtm_serial <- create_dtm(itoken(tokens), vectorizer = h_vectorizer),
+  hash_dtm_parallel <- create_dtm(jobs, vectorizer = h_vectorizer), 
+  tcm_serial <- create_dtm(itoken(tokens), vectorizer = tcm_vectorizer), 
+  tcm_parallel <- create_dtm(jobs, vectorizer = tcm_vectorizer), 
+  times = 1
+)
+    
 ```
 
 As you can see, speedup is not perfect. This happened because, **R's high-level parallelism has significant overhead on small tasks. On larger tasks you can expect almost linear speedup**!
@@ -237,7 +244,7 @@ jobs <- fls %>%
 # alternatively can process each file as separate job
 # jobs <- lapply(fls, function(x) x %>% ifiles(reader_function = reader) %>% itoken)
 
-v <- vocabulary(jobs) %>% 
+v <- create_vocabulary(jobs) %>% 
   prune_vocabulary(term_count_min = 10, doc_proportion_max = 0.2)
 
 dtm <- create_dtm(jobs, vocab_vectorizer(v), type = 'dgTMatrix')
@@ -245,5 +252,10 @@ dtm <- create_dtm(jobs, vocab_vectorizer(v), type = 'dgTMatrix')
 finish <- Sys.time()
 ```
 
+### Updates
+
+* **updated 2016-03-31**: a few synatax improvements, to be consistenr with [Hadley's style guide](http://adv-r.had.co.nz/Style.html) - all function names are verbs:
+    * *`vocabulary` -> `create_vocabulary`*
+    * *`tranformer_*`-> `tranform_*`*
 
 
